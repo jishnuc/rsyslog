@@ -592,7 +592,7 @@ getIndexTypeAndParent(const instanceData *const pData, uchar **const tpls,
 
 done:
 	assert(srchIndex != NULL);
-	assert(srchType != NULL);
+	//assert(srchType != NULL);
 	return;
 }
 
@@ -630,7 +630,7 @@ setPostURL(wrkrInstanceData_t *const pWrkrData, uchar **const tpls)
 		getIndexTypeAndParent(pData, tpls, &searchIndex, &searchType, &parent, &bulkId, &pipelineName);
 		r = es_addBuf(&url, (char*)searchIndex, ustrlen(searchIndex));
 		if(r == 0) r = es_addChar(&url, '/');
-		if(r == 0) r = es_addBuf(&url, (char*)searchType, ustrlen(searchType));
+		//if(r == 0) r = es_addBuf(&url, (char*)searchType, ustrlen(searchType));
 		if(pipelineName != NULL && (!pData->skipPipelineIfEmpty || pipelineName[0] != '\0')) {
 			if(r == 0) r = es_addChar(&url, separator);
 			if(r == 0) r = es_addBuf(&url, "pipeline=", sizeof("pipeline=")-1);
@@ -674,14 +674,14 @@ computeMessageSize(const wrkrInstanceData_t *const pWrkrData,
 	const uchar *const message,
 	uchar **const tpls)
 {
-	size_t r = sizeof(META_TYPE)-1 + sizeof(META_END)-1 + sizeof("\n")-1;
+	size_t r = sizeof(META_END)-1 + sizeof("\n")-1;
 	if (pWrkrData->pData->writeOperation == ES_WRITE_CREATE)
 		r += sizeof(META_STRT_CREATE)-1;
 	else
 		r += sizeof(META_STRT)-1;
 
 	uchar *searchIndex = NULL;
-	uchar *searchType;
+	uchar *searchType = NULL;
 	uchar *parent = NULL;
 	uchar *bulkId = NULL;
 	uchar *pipelineName;
@@ -689,6 +689,9 @@ computeMessageSize(const wrkrInstanceData_t *const pWrkrData,
 	getIndexTypeAndParent(pWrkrData->pData, tpls, &searchIndex, &searchType, &parent, &bulkId, &pipelineName);
 	r += ustrlen((char *)message) + ustrlen(searchIndex) + ustrlen(searchType);
 
+    if(searchType != NULL) {
+    		r += sizeof(META_TYPE)-1 + ustrlen(searchType);
+    }
 	if(parent != NULL) {
 		r += sizeof(META_PARENT)-1 + ustrlen(parent);
 	}
@@ -713,7 +716,7 @@ buildBatch(wrkrInstanceData_t *pWrkrData, uchar *message, uchar **tpls)
 	int length = strlen((char *)message);
 	int r;
 	uchar *searchIndex = NULL;
-	uchar *searchType;
+	uchar *searchType = NULL;
 	uchar *parent = NULL;
 	uchar *bulkId = NULL;
 	uchar *pipelineName;
@@ -726,9 +729,11 @@ buildBatch(wrkrInstanceData_t *pWrkrData, uchar *message, uchar **tpls)
 		r = es_addBuf(&pWrkrData->batch.data, META_STRT, sizeof(META_STRT)-1);
 	if(r == 0) r = es_addBuf(&pWrkrData->batch.data, (char*)searchIndex,
 				 ustrlen(searchIndex));
-	if(r == 0) r = es_addBuf(&pWrkrData->batch.data, META_TYPE, sizeof(META_TYPE)-1);
-	if(r == 0) r = es_addBuf(&pWrkrData->batch.data, (char*)searchType,
-				 ustrlen(searchType));
+	if(searchType != NULL) {
+        if(r == 0) r = es_addBuf(&pWrkrData->batch.data, META_TYPE, sizeof(META_TYPE)-1);
+        if(r == 0) r = es_addBuf(&pWrkrData->batch.data, (char*)searchType,
+                     ustrlen(searchType));
+	}
 	if(parent != NULL) {
 		if(r == 0) r = es_addBuf(&pWrkrData->batch.data, META_PARENT, sizeof(META_PARENT)-1);
 		if(r == 0) r = es_addBuf(&pWrkrData->batch.data, (char*)parent, ustrlen(parent));
@@ -2089,8 +2094,8 @@ CODESTARTnewActInst
 
 	if(pData->searchIndex == NULL)
 		pData->searchIndex = (uchar*) strdup("system");
-	if(pData->searchType == NULL)
-		pData->searchType = (uchar*) strdup("events");
+	/*if(pData->searchType == NULL)
+		pData->searchType = (uchar*) strdup("events");*/
 
 	if ((pData->writeOperation != ES_WRITE_INDEX) && (pData->bulkId == NULL)) {
 		LogError(0, RS_RET_CONFIG_ERROR,
